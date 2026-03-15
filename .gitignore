@@ -2,11 +2,10 @@
 /venv
 yolov8n.pt
 __pycache__
+Docs/
 *.pyc
 *.pyo
 *.pyd
 .DS_Store
 .idea
 .vscode
-*.env
-.env.*

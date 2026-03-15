@@ -13,3 +13,6 @@ Many examples and implementations in this repository are based on the official O
 
 Reference:
 https://docs.opencv.org/4.x/d6/d00/tutorial_py_root.html
+
+How to install requirement:
+```pip install -r requirements.txt```

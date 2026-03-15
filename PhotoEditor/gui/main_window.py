@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QMainWindow, QLabel, QPushButton, QSlider,
     QVBoxLayout, QHBoxLayout, QWidget, QFileDialog,
-    QSizePolicy
+    QSizePolicy, QScrollArea
 )
 from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtCore import Qt
@@ -9,6 +9,7 @@ import cv2
 from processing import filters, adjustments
 from rembg import remove
 from PIL import Image, ImageOps
+from utils import file_ops
 import numpy as np
 
 class MainWindow(QMainWindow):
@@ -25,8 +26,21 @@ class MainWindow(QMainWindow):
 
     # ================= UI SETUP =================
     def setup_ui(self):
+        self.create_image_display()
+        sidebar_content = self.create_sidebar()
+        scroll_area = self.create_scroll_area(sidebar_content)
 
-        # ===== Image Display Area =====
+        main_layout = QHBoxLayout()
+        main_layout.addWidget(scroll_area)
+        main_layout.addWidget(self.label)
+
+        container = QWidget()
+        container.setLayout(main_layout)
+        self.setCentralWidget(container)
+
+    # ---- Helper Methods ----
+
+    def create_image_display(self):
         self.label = QLabel("Open an Image")
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -36,120 +50,81 @@ class MainWindow(QMainWindow):
             font-size: 69px;
         """)
 
-        # ===== Sidebar Layout =====
-        sidebar_layout = QVBoxLayout()
+    def create_sidebar(self):
+        layout = QVBoxLayout()
 
+        # File buttons
+        for text, slot in [("Open Image", self.open_image),
+                        ("Save Image", self.save_image)]:
+            btn = self.create_button(text)
+            btn.clicked.connect(slot)
+            layout.addWidget(btn)
+        layout.addSpacing(20)
+
+        # HSV sliders
+        self.sliders = {}
+        for name, min_val, max_val, default in [
+            ("Hue Min", 0, 179, 0),
+            ("Hue Max", 0, 179, 179),
+            ("Sat Min", 0, 255, 0),
+            ("Sat Max", 0, 255, 255),
+            ("Val Min", 0, 255, 0),
+            ("Val Max", 0, 255, 255)
+        ]:
+            layout.addWidget(QLabel(name))
+            slider = self.create_slider(min_val, max_val, default)
+            layout.addWidget(slider)
+            self.sliders[name] = slider
+
+        # Mask button
         self.mask_btn = self.create_button("Show Mask")
         self.mask_btn.clicked.connect(self.show_mask)
-        sidebar_layout.addWidget(self.mask_btn)
+        layout.addWidget(self.mask_btn)
+        layout.addSpacing(20)
 
-        self.h_min = self.create_slider(0,179,0)
-        self.h_max = self.create_slider(0,179,179)
+        # Filters buttons
+        for text, slot in [("Gray Background", self.apply_gray_background),
+                        ("Grayscale", self.apply_grayscale),
+                        ("Blur", self.apply_blur)]:
+            btn = self.create_button(text)
+            btn.clicked.connect(slot)
+            layout.addWidget(btn)
+        layout.addSpacing(20)
 
-        self.s_min = self.create_slider(0,255,0)
-        self.s_max = self.create_slider(0,255,255)
-
-        self.v_min = self.create_slider(0,255,0)
-        self.v_max = self.create_slider(0,255,255)
-
-        sidebar_layout.addWidget(QLabel("Hue Min"))
-        sidebar_layout.addWidget(self.h_min)
-
-        sidebar_layout.addWidget(QLabel("Hue Max"))
-        sidebar_layout.addWidget(self.h_max)
-
-        sidebar_layout.addWidget(QLabel("Sat Min"))
-        sidebar_layout.addWidget(self.s_min)
-
-        sidebar_layout.addWidget(QLabel("Sat Max"))
-        sidebar_layout.addWidget(self.s_max)
-
-        sidebar_layout.addWidget(QLabel("Val Min"))
-        sidebar_layout.addWidget(self.v_min)
-
-        sidebar_layout.addWidget(QLabel("Val Max"))
-        sidebar_layout.addWidget(self.v_max)
-
-        # Buttons
-        self.open_btn = self.create_button("Open Image")
-        self.open_btn.clicked.connect(self.open_image)
-
-        self.save_btn = self.create_button("Save Image")
-        self.save_btn.clicked.connect(self.save_image)
-
-        self.gray_btn = self.create_button("Grayscale")
-        self.gray_btn.clicked.connect(self.apply_grayscale)
-
-        self.blur_btn = self.create_button("Blur")
-        self.blur_btn.clicked.connect(self.apply_blur)
-
-
-        self.gray_bg_btn = self.create_button("Gray Background")
-        self.gray_bg_btn.clicked.connect(self.apply_gray_background)
-
-        # Brightness Slider
+        # Brightness slider
         self.slider_label = QLabel("Brightness")
         self.slider_label.setStyleSheet("color: white; font-size: 14px;")
+        layout.addWidget(self.slider_label)
 
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setMinimum(-100)
         self.slider.setMaximum(100)
         self.slider.setValue(0)
         self.slider.valueChanged.connect(self.apply_brightness)
+        layout.addWidget(self.slider)
 
-        # Add to sidebar
-        sidebar_layout.addWidget(self.gray_bg_btn)
-        sidebar_layout.addWidget(self.open_btn)
-        sidebar_layout.addWidget(self.save_btn)
+        layout.addStretch()
 
-        sidebar_layout.addSpacing(20)
-
-        sidebar_layout.addWidget(self.gray_btn)
-        sidebar_layout.addWidget(self.blur_btn)
-
-        sidebar_layout.addSpacing(20)
-
-        sidebar_layout.addWidget(self.slider_label)
-        sidebar_layout.addWidget(self.slider)
-
-        sidebar_layout.addStretch()
-
+        # Put everything inside a QWidget
         sidebar_widget = QWidget()
-        sidebar_widget.setLayout(sidebar_layout)
-        sidebar_widget.setFixedWidth(220)
-        sidebar_widget.setStyleSheet("background-color: #2c2c2c;")
+        sidebar_widget.setLayout(layout)
+        return sidebar_widget
 
-        # ===== Main Layout =====
-        main_layout = QHBoxLayout()
-        main_layout.addWidget(sidebar_widget)
-        main_layout.addWidget(self.label)
-
-        container = QWidget()
-        container.setLayout(main_layout)
-
-        self.setCentralWidget(container)
-
-    def show_mask(self):
-
-        hsv = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
-
-        lower = np.array([
-            self.h_min.value(),
-            self.s_min.value(),
-            self.v_min.value()
-        ])
-
-        upper = np.array([
-            self.h_max.value(),
-            self.s_max.value(),
-            self.v_max.value()
-        ])
-
-        mask = cv2.inRange(hsv, lower, upper)
-
-        mask_rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-
-        self.display_image(mask_rgb)
+    def create_scroll_area(self, content_widget):
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(content_widget)
+        scroll_area.setFixedWidth(220)
+        scroll_area.setStyleSheet("background-color: #2c2c2c;")
+        return scroll_area
+    
+    def create_slider(self, min_val, max_val, default):
+        slider = QSlider(Qt.Horizontal)
+        slider.setMinimum(min_val)
+        slider.setMaximum(max_val)
+        slider.setValue(default)
+        slider.valueChanged.connect(self.update_mask)
+        return slider
 
     # ================= Styled Button =================
     def create_button(self, text):
@@ -170,18 +145,8 @@ class MainWindow(QMainWindow):
             }
         """)
         return btn
-    def create_slider(self, min_val, max_val, default):
-        slider = QSlider(Qt.Horizontal)
-        slider.setMinimum(min_val)
-        slider.setMaximum(max_val)
-        slider.setValue(default)
-        slider.valueChanged.connect(self.update_mask)
-        return slider
-    def update_mask(self):
-
-        if self.image is None:
-            return
-
+    
+    def show_mask(self):
         hsv = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
 
         lower = np.array([
@@ -198,33 +163,44 @@ class MainWindow(QMainWindow):
 
         mask = cv2.inRange(hsv, lower, upper)
 
-        result = cv2.bitwise_and(self.image, self.image, mask=mask)
+        mask_rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
 
+        self.display_image(mask_rgb)
+
+    def update_mask(self):
+        if self.image is None:
+            return
+
+        hsv = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
+
+        lower = np.array([
+            self.sliders["Hue Min"].value(),
+            self.sliders["Sat Min"].value(),
+            self.sliders["Val Min"].value()
+        ])
+        upper = np.array([
+            self.sliders["Hue Max"].value(),
+            self.sliders["Sat Max"].value(),
+            self.sliders["Val Max"].value()
+        ])
+
+        mask = cv2.inRange(hsv, lower, upper)
+        result = cv2.bitwise_and(self.image, self.image, mask=mask)
         self.display_image(result)
+
     # ================= File Operations =================
     def open_image(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open Image",
-            "",
-            "Images (*.png *.jpg *.jpeg *.bmp)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.png *.jpg *.jpeg *.bmp)")
         if path:
-            self.image = cv2.imread(path) # Load in BGR format
-            self.original = self.image.copy() # Keep original for adjustments
-            self.slider.setValue(0) # Reset brightness slider
+            self.image = file_ops.load_image(path)
+            self.original = self.image.copy()
             self.display_image(self.image)
 
     def save_image(self):
         if self.image is not None:
-            path, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save Image",
-                "",
-                "JPEG (*.jpg);;PNG (*.png)"
-            )
+            path, _ = QFileDialog.getSaveFileName(self, "Save Image", "", "JPEG (*.jpg);;PNG (*.png)")
             if path:
-                cv2.imwrite(path, self.image)
+                file_ops.save_image(path, self.image)
 
     # ================= Display Function =================
     # Convert BGR to RGB, then to QImage, and display
@@ -261,6 +237,6 @@ class MainWindow(QMainWindow):
             self.display_image(self.image)
             
     def apply_gray_background(self):
-        if self.image is not None:            
+        if self.image is not None:
             self.image = adjustments.process_gray_background(self.image)
             self.display_image(self.image)
