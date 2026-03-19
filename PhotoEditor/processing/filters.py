@@ -7,9 +7,6 @@ def grayscale(img):
 def blur(img, ksize=15):
     return cv2.GaussianBlur(img, (ksize, ksize), 0)
 
-def bgr_to_hsv(img):
-    return cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
 def edge(img, low=100, high=200):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, low, high)

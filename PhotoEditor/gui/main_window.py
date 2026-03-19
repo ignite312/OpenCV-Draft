@@ -85,7 +85,8 @@ class MainWindow(QMainWindow):
         # Filters buttons
         for text, slot in [("Gray Background", self.apply_gray_background),
                         ("Grayscale", self.apply_grayscale),
-                        ("Blur", self.apply_blur)]:
+                        ("Blur", self.apply_blur),
+                        ("Rotate", self.apply_rotate)]:
             btn = self.create_button(text)
             btn.clicked.connect(slot)
             layout.addWidget(btn)
@@ -239,4 +240,8 @@ class MainWindow(QMainWindow):
     def apply_gray_background(self):
         if self.image is not None:
             self.image = adjustments.process_gray_background(self.image)
+            self.display_image(self.image)
+    def apply_rotate(self):
+        if self.image is not None:
+            self.image = adjustments.rotate(self.image, 90)
             self.display_image(self.image)
