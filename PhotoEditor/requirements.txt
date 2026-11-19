@@ -3,3 +3,4 @@ opencv-python
 numpy
 Pillow
 "rembg[cpu]"
+from matplotlib import pyplot as plt

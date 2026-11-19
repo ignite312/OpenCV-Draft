@@ -19,7 +19,7 @@ def process_gray_background(cv_image):
     cv_rgb = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
     pil_img = Image.fromarray(cv_rgb).convert("RGBA")
 
-    # Remove background 
+    # Remove background
     mask_image = remove(pil_img)
 
     alpha_mask = mask_image.split()[-1]

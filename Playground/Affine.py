@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 # Read image
-img = cv.imread('sudoku.png')
+img = cv.imread('../Images/icpc.jpg')
 
 # Check if image loaded
 assert img is not None, "file could not be read, check with os.path.exists()"
